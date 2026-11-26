@@ -1,0 +1,52 @@
+# Fixed project name, so renaming the folder never orphans the database volume.
+name: belphegor
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-belphegor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-belphegor}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-belphegor} -d ${POSTGRES_DB:-belphegor}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: on-failure
+
+  belphegor:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # docker-entrypoint.sh keeps the secrets below out of every process that agent shells can read.
+      BELPHEGOR_PG_DSN: postgres://${POSTGRES_USER:-belphegor}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-belphegor}?sslmode=disable
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      BELPHEGOR_LLM_PROVIDER: ${BELPHEGOR_LLM_PROVIDER:-}
+      BELPHEGOR_LLM_MODEL: ${BELPHEGOR_LLM_MODEL:-}
+      BELPHEGOR_LLM_BASE_URL: ${BELPHEGOR_LLM_BASE_URL:-}
+      BELPHEGOR_LLM_PROXY: ${BELPHEGOR_LLM_PROXY:-}
+      BELPHEGOR_SETUP_TOKEN: ${BELPHEGOR_SETUP_TOKEN:-}
+      BELPHEGOR_ADMIN_PASSWORD: ${BELPHEGOR_ADMIN_PASSWORD:-}
+      BELPHEGOR_CORS_ORIGINS: ${BELPHEGOR_CORS_ORIGINS:-}
+    ports:
+      - "127.0.0.1:8787:8787"
+    # Named volumes only: nothing on this computer's disk is mounted into the container.
+    volumes:
+      - belphegor-data:/app/data
+      - belphegor-skills:/app/skills
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 1024
+    mem_limit: 4g
+    restart: on-failure
+
+volumes:
+  pgdata:
+  belphegor-data:
+  belphegor-skills:

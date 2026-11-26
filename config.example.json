@@ -1,0 +1,16 @@
+{
+  "_comment": "Copy to config.json (or point BELPHEGOR_CONFIG at another path). Only database and skill_dir live here; LLM and other settings come from environment variables or the UI.",
+
+  "_comment_database": "PostgreSQL connection. Precedence: BELPHEGOR_PG_DSN, then this file. Use either the separate fields below, or one complete connection string in database.dsn (then the separate fields are ignored).",
+  "database": {
+    "host": "127.0.0.1",
+    "port": 5432,
+    "user": "belphegor",
+    "password": "",
+    "dbname": "belphegor",
+    "sslmode": "disable"
+  },
+
+  "_comment_skill_dir": "Skill root: one subdirectory per skill, each with a SKILL.md. Precedence: BELPHEGOR_SKILL_DIR, then this field, then skills/ next to the executable.",
+  "skill_dir": ""
+}

@@ -1,0 +1,10 @@
+/.env
+/config.json
+/jwt.key
+/data/
+/server/webui/dist/
+/web/.next/
+/web/out/
+/web/next-env.d.ts
+node_modules/
+*.tsbuildinfo

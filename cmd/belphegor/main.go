@@ -1,0 +1,158 @@
+// Command belphegor runs the Belphegor backend: the dual SQLite graph stores,
+// the event-driven exploration engine, and the JSON HTTP API consumed by the
+// shadcn/ui frontend.
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"runtime"
+	"syscall"
+	"time"
+
+	"github.com/Rehaan15790/belphegor/agent"
+	"github.com/Rehaan15790/belphegor/config"
+	"github.com/Rehaan15790/belphegor/guard"
+	"github.com/Rehaan15790/belphegor/server"
+)
+
+// version is the build version, injected at release time via
+// -ldflags "-X main.version=<tag>". Defaults to "dev" for local builds.
+var version = "dev"
+
+const banner = `
+ ___      _      _
+| _ ) ___| |_ __| |_  ___ __ _ ___ _ _
+| _ \/ -_) | '_ \ ' \/ -_) _` + "`" + ` / _ \ '_|
+|___/\___|_| .__/_||_\___\__, \___/_|
+           |_|           |___/
+`
+
+// printBanner writes the startup banner + version/runtime info to stdout.
+func printBanner(addr string) {
+	fmt.Print(banner)
+	fmt.Println("  AI autonomous penetration testing system")
+	fmt.Printf("  version %s  -  %s/%s  -  %s  -  listening on %s\n\n",
+		version, runtime.GOOS, runtime.GOARCH, runtime.Version(), addr)
+}
+
+func main() {
+	os.Exit(run())
+}
+
+func run() int {
+	var (
+		addr    = flag.String("addr", "127.0.0.1:8787", "HTTP listen address (default accepts local connections only; use :8787 to serve other hosts)")
+		dataDir = flag.String("data", filepath.Join(config.BaseDir(), "data"), "data directory for SQLite stores (default: data/ next to the executable)")
+		proxy   = flag.String("proxy", "127.0.0.1:8788", "traffic recording proxy address (empty to disable)")
+	)
+	flag.Parse()
+
+	// The agents run commands chosen by an LLM that reads hostile pages. A container keeps those
+	// away from the operator's files, so running on the host needs an explicit opt-in, and then
+	// every command, file write and MCP call waits for approval.
+	if !inContainer() {
+		if os.Getenv("BELPHEGOR_ALLOW_HOST_EXEC") != "1" {
+			fmt.Fprintln(os.Stderr, "Belphegor runs LLM-chosen commands with your user's permissions, so it only starts inside a container by default.\nUse: docker compose up --build\nTo run directly on this computer anyway, with an approval prompt for every command, set BELPHEGOR_ALLOW_HOST_EXEC=1.")
+			return 1
+		}
+		guard.RequireApproval = true
+	}
+	if err := config.ScrubEnv(); err != nil {
+		fmt.Fprintln(os.Stderr, "secure startup:", err)
+		return 1
+	}
+	// norma's Grep otherwise runs "npm install -g @vscode/ripgrep" when rg is missing.
+	os.Setenv("NORMA_RIPGREP_NO_INSTALL", "1")
+
+	// hand the build version to the server package so GET /api/health can report it
+	// to the frontend top bar.
+	server.BuildVersion = version
+
+	printBanner(*addr)
+
+	// capture backend logs into the in-memory sink (still to stderr) so the /logs
+	// page can show a live log stream. Do this first, to catch startup logs too.
+	server.StartLogCapture()
+
+	// surface which config file the binary reads (absolute, so `go run`'s relative
+	// "config.json" — resolved against the CWD — is unambiguous).
+	cfgPath := config.Path()
+	if abs, e := filepath.Abs(cfgPath); e == nil {
+		cfgPath = abs
+	}
+	if _, e := os.Stat(cfgPath); e == nil {
+		log.Printf("[config] config file: %s", cfgPath)
+	} else {
+		log.Printf("[config] config file: %s (not found - using only environment variable BELPHEGOR_PG_DSN)", cfgPath)
+	}
+
+	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	ctx, shutdown := shutdownContext(sigCtx)
+	defer shutdown(agent.AbortShutdown)
+
+	mgr, err := server.NewManager(*dataDir, *proxy)
+	if err != nil {
+		log.Fatalf("open stores: %v", err)
+	}
+	defer mgr.Close()
+
+	skillDir := config.SkillDir()
+	if abs, err := filepath.Abs(skillDir); err == nil {
+		skillDir = abs
+	}
+	log.Printf("[config] skill directory: %s", skillDir)
+	srv := server.New(ctx, mgr, skillDir, *dataDir, config.BaseDir())
+	srv.WarnIfExposed(*addr)
+	httpSrv := &http.Server{
+		Addr:              *addr,
+		Handler:           srv.Handler(),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	go func() {
+		log.Printf("Belphegor %s backend listening on %s (data=%s, workers=%d)", version, *addr, *dataDir, mgr.Workers())
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("serve: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Println("shutting down...")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = httpSrv.Shutdown(shutdownCtx)
+	return 0
+}
+
+// shutdownContext deliberately does not derive from signalCtx. If it did, the
+// parent's plain context.Canceled could win the race before AbortShutdown was
+// attached to the child, losing the diagnostic cause in every running Agent.
+func shutdownContext(signalCtx context.Context) (context.Context, context.CancelCauseFunc) {
+	ctx, shutdown := context.WithCancelCause(context.Background())
+	go func() {
+		select {
+		case <-signalCtx.Done():
+			shutdown(agent.AbortShutdown)
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, shutdown
+}
+
+// inContainer reports whether the process runs inside Docker or Podman.
+func inContainer() bool {
+	for _, p := range []string{"/.dockerenv", "/run/.containerenv"} {
+		if _, err := os.Stat(p); err == nil {
+			return true
+		}
+	}
+	return false
+}
