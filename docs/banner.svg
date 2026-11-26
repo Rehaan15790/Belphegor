@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" width="1280" height="400" role="img" aria-labelledby="title desc">
+  <title id="title">Belphegor</title>
+  <desc id="desc">Offensive security console. Authorized targets only.</desc>
+  <style>
+    .sans { font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; }
+    .cursor { animation: blink 1.1s steps(1, end) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+  </style>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.04"/>
+    </pattern>
+    <pattern id="hazard" width="36" height="48" patternUnits="userSpaceOnUse" patternTransform="skewX(-45)">
+      <rect width="18" height="48" fill="#ff1e2d"/>
+    </pattern>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3.5"/>
+    </filter>
+    <filter id="textglow" x="-20%" y="-60%" width="140%" height="220%">
+      <feGaussianBlur stdDeviation="11"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="400" fill="#050505"/>
+  <rect width="1280" height="352" fill="url(#grid)"/>
+  <polygon points="940,0 1100,0 900,352 740,352" fill="#ff1e2d" fill-opacity="0.08"/>
+  <polygon points="1130,0 1170,0 970,352 930,352" fill="#ff1e2d" fill-opacity="0.05"/>
+
+  <g transform="translate(96 96) scale(2.5)">
+    <path filter="url(#glow)" fill="#ff1e2d" fill-opacity="0.75" d="M17 23C9 19 3 10 6 0C10 9 16 15 27 19ZM47 23C55 19 61 10 58 0C54 9 48 15 37 19ZM13 19L28 19L32 25L36 19L51 19L55 30L45 50L32 62L19 50L9 30Z"/>
+    <path fill="#ff1e2d" d="M17 23C9 19 3 10 6 0C10 9 16 15 27 19ZM47 23C55 19 61 10 58 0C54 9 48 15 37 19ZM13 19L28 19L32 25L36 19L51 19L55 30L45 50L32 62L19 50L9 30Z"/>
+    <path fill="#fff1c9" d="M16 30L30 36L19 38ZM48 30L34 36L45 38Z"/>
+  </g>
+
+  <g class="sans" font-size="88" font-weight="900">
+    <text x="300" y="196" textLength="690" lengthAdjust="spacing" filter="url(#textglow)" fill-opacity="0.55"><tspan fill="#ff1e2d">BELPHE</tspan><tspan fill="#ff1e2d" fill-opacity="0">GOR</tspan></text>
+    <text x="300" y="196" textLength="690" lengthAdjust="spacing"><tspan fill="#ff1e2d">BELPHE</tspan><tspan fill="#f4f4f4">GOR</tspan></text>
+  </g>
+  <text x="304" y="240" class="sans" font-size="20" font-weight="600" fill="#8c8c8c" textLength="482" lengthAdjust="spacing">OFFENSIVE SECURITY CONSOLE</text>
+
+  <text x="304" y="302" class="mono" font-size="20" textLength="324" lengthAdjust="spacingAndGlyphs"><tspan fill="#ff1e2d">$</tspan><tspan fill="#f4f4f4"> docker compose up --build</tspan></text>
+  <rect class="cursor" x="636" y="285" width="11" height="21" fill="#ff1e2d"/>
+
+  <rect y="352" width="1280" height="48" fill="#050505"/>
+  <rect y="352" width="1280" height="48" fill="url(#hazard)"/>
+  <rect x="96" y="362" width="320" height="28" fill="#050505"/>
+  <text x="112" y="382" class="sans" font-size="14" font-weight="700" fill="#ff1e2d" textLength="288" lengthAdjust="spacing">AUTHORIZED TARGETS ONLY</text>
+</svg>
