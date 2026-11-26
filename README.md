@@ -49,17 +49,19 @@
 Workers write what they learn into the task's exploration graph. The planner wakes when the graph changes, and at least every 10 minutes, to decide whether a goal is met or a new direction is worth an intent. The task finishes when all goals are met or when it reaches the time limit you set, if any.
 
 ```mermaid
-flowchart LR
+flowchart TB
   you(["You, in a browser"]) -->|"web UI and API on :8787"| server["Go server"]
-  server --> agents["Agents: goals, planner,<br/>workers, main"]
-  agents <-->|"prompts and replies"| llm["LLM provider"]
-  agents -->|"every tool call"| rules{"Intercept rules<br/>and approvals"}
-  rules -->|"allowed"| tools["Shell, browser, MCP,<br/>skills, custom tools"]
-  tools --> targets[("Targets")]
-  tools -.->|"HTTP, when capture is on"| proxy["Recording proxy :8788"]
-  proxy -.-> targets
   server <--> pg[("PostgreSQL")]
-  server <--> files[("/app/data: traffic,<br/>sessions, task files")]
+  server <--> files[("/app/data")]
+  server --> agents["Agents: goals, planner, workers, main"]
+  agents <--> llm["LLM provider"]
+  agents -->|"every tool call"| rules{"Intercept rules"}
+  rules -->|"allowed"| tools["Shell, browser, MCP, skills"]
+  tools --> targets[("Targets")]
+  tools -.->|"when traffic capture is on"| proxy["Recording proxy :8788"]
+  proxy -.-> targets
+  classDef gate stroke:#ff1e2d,stroke-width:2px
+  class rules gate
 ```
 
 The Go server serves the web UI and the API, runs the agents and keeps tasks, findings, assets and settings in PostgreSQL. Files the agents write, captured traffic and task archives live under `/app/data`.
